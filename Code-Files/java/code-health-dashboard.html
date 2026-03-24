@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Health Observatory Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f8fafc;
+            color: #1a202c;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .last-updated {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+        }
+
+        .card h2 {
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            color: #2d3748;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 10px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .half-width-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .hotspots-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .hotspots-table th,
+        .hotspots-table td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .hotspots-table th {
+            background-color: #f7fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .hotspots-table tr:hover {
+            background-color: #f7fafc;
+        }
+
+        .changes-count {
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+
+        .changes-high {
+            background-color: #fed7d7;
+            color: #c53030;
+        }
+
+        .changes-medium {
+            background-color: #feebc8;
+            color: #dd6b20;
+        }
+
+        .changes-low {
+            background-color: #c6f6d5;
+            color: #38a169;
+        }
+
+        .win-section {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+        }
+
+        .win-section h2 {
+            font-size: 1.6em;
+            margin-bottom: 15px;
+            border: none;
+            color: white;
+        }
+
+        .win-content {
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+
+        .next-priority {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+        }
+
+        .next-priority h2 {
+            font-size: 1.6em;
+            margin-bottom: 15px;
+            border: none;
+            color: white;
+        }
+
+        .next-priority-content {
+            font-size: 1.1em;
+            font-style: italic;
+            opacity: 0.9;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-healthy { background-color: #48bb78; }
+        .status-watch { background-color: #ed8936; }
+        .status-action { background-color: #e53e3e; }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.9em;
+            color: #4a5568;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .half-width-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+            
+            .hotspots-table {
+                font-size: 0.9em;
+            }
+            
+            .hotspots-table th,
+            .hotspots-table td {
+                padding: 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .legend {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .legend-item {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🔍 Code Health Observatory</h1>
+            <div class="last-updated">Last Updated: <span id="lastUpdated"></span></div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="card">
+                <h2>📈 Complexity Trends (4 Weeks)</h2>
+                <div class="chart-container">
+                    <canvas id="complexityChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🧪 Test Coverage by Module</h2>
+                <div class="chart-container">
+                    <canvas id="coverageChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="card full-width">
+            <h2>🔥 Code Churn Hotspots (Last 30 Days)</h2>
+            <table class="hotspots-table">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Changes</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>InvoiceDAO.java</td>
+                        <td><span class="changes-count changes-high">47</span></td>
+                        <td><span class="status-indicator status-action"></span>Action Needed</td>
+                    </tr>
+                    <tr>
+                        <td>BillingProcessor.java</td>
+                        <td><span class="changes-count changes-medium">31</span></td>
+                        <td><span class="status-indicator status-watch"></span>Watch</td>
+                    </tr>
+                    <tr>
+                        <td>PaymentProcessor.java</td>
+                        <td><span class="changes-count changes-medium">23</span></td>
+                        <td><span class="status-indicator status-watch"></span>Watch</td>
+                    </tr>
+                    <tr>
+                        <td>AuthService.java</td>
+                        <td><span class="changes-count changes-low">12</span></td>
+                        <td><span class="status-indicator status-healthy"></span>Healthy</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="win-section">
+            <h2>🎉 This Sprint's Win</h2>
+            <div class="win-content">
+                Reduced complexity in PaymentProcessor from 42 → 28
+            </div>
+        </div>
+
+        <div class="next-priority">
+            <h2>🎯 Next Priority</h2>
+            <div class="next-priority-content">
+                To be determined in next planning session...
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <span class="status-indicator status-healthy"></span>
+                Healthy (Coverage >70%, Complexity <25, Changes <15)
+            </div>
+            <div class="legend-item">
+                <span class="status-indicator status-watch"></span>
+                Watch (Coverage 40-70%, Complexity 25-40, Changes 15-30)
+            </div>
+            <div class="legend-item">
+                <span class="status-indicator status-action"></span>
+                Action Needed (Coverage <40%, Complexity >40, Changes >30)
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set last updated timestamp
+        document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+
+        // Complexity Trends Chart
+        const complexityCtx = document.getElementById('complexityChart').getContext('2d');
+        new Chart(complexityCtx, {
+            type: 'line',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                datasets: [{
+                    label: 'Complexity Score',
+                    data: [38, 35, 32, 30],
+                    borderColor: '#48bb78',
+                    backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#48bb78',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 25,
+                        max: 45,
+                        grid: {
+                            color: '#e2e8f0'
+                        },
+                        ticks: {
+                            color: '#4a5568'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: '#e2e8f0'
+                        },
+                        ticks: {
+                            color: '#4a5568'
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        hoverBorderWidth: 3
+                    }
+                }
+            }
+        });
+
+        // Test Coverage Chart
+        const coverageCtx = document.getElementById('coverageChart').getContext('2d');
+        new Chart(coverageCtx, {
+            type: 'bar',
+            data: {
+                labels: ['AuthService', 'PaymentProcessor', 'InvoiceDAO', 'CustomerServlet'],
+                datasets: [{
+                    label: 'Test Coverage %',
+                    data: [85, 42, 28, 12],
+                    backgroundColor: [
+                        '#48bb78', // Green for healthy
+                        '#ed8936', // Orange for watch
+                        '#e53e3e', // Red for action needed
+                        '#e53e3e'  // Red for action needed
+                    ],
+                    borderColor: [
+                        '#38a169',
+                        '#dd6b20',
+                        '#c53030',
+                        '#c53030'
+                    ],
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: '#e2e8f0'
+                        },
+                        ticks: {
+                            color: '#4a5568',
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#4a5568'
+                        }
+                    }
+                },
+                elements: {
+                    bar: {
+                        borderRadius: 6
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
