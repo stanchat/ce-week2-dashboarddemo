@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Health Dashboard</title>
+  <!-- FIX: Use current major CDN path for Chart.js v4 to avoid stale pinned patch versions. -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" defer></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #1f2a37;
+      --muted: #637083;
+      --healthy: #1f8a4c;
+      --watch: #d6a000;
+      --action: #c9372c;
+      --border: #d8dee8;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, #e7efff 0%, rgba(231, 239, 255, 0) 45%),
+        radial-gradient(circle at 100% 100%, #fff3d9 0%, rgba(255, 243, 217, 0) 35%),
+        var(--bg);
+      line-height: 1.45;
+    }
+
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 24px 16px 32px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0f2a43, #173e66);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 1.55rem;
+      letter-spacing: 0.2px;
+    }
+
+    .header p {
+      margin: 10px 0 0;
+      color: #dbe8f7;
+      font-size: 0.95rem;
+    }
+
+    .status-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .status-chip {
+      background: var(--panel);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+      font-size: 0.93rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 50px;
+    }
+
+    .badge {
+      padding: 3px 10px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .healthy { background: var(--healthy); }
+    .watch { background: var(--watch); }
+    .action { background: var(--action); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 1.02rem;
+    }
+
+    .card .sub {
+      color: var(--muted);
+      margin: 0 0 12px;
+      font-size: 0.9rem;
+    }
+
+    .chart-wrap {
+      height: 280px;
+    }
+
+    .chart-wrap.small {
+      height: 220px;
+    }
+
+    .gauge-value {
+      margin-top: 10px;
+      font-size: 1.35rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .sparkline-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .spark-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: #fbfdff;
+    }
+
+    .spark-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .spark-canvas-wrap {
+      height: 46px;
+    }
+
+    .heatmap-wrap {
+      overflow-x: auto;
+    }
+
+    .heatmap-table th,
+    .heatmap-table td {
+      text-align: center;
+      min-width: 56px;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 6px;
+      font-size: 0.82rem;
+    }
+
+    .heatmap-table th:first-child,
+    .heatmap-table td:first-child {
+      text-align: left;
+      min-width: 220px;
+      position: sticky;
+      left: 0;
+      background: #fff;
+      z-index: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    .callout {
+      border-left: 5px solid var(--healthy);
+      background: linear-gradient(90deg, rgba(31, 138, 76, 0.08), rgba(31, 138, 76, 0));
+      padding: 14px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+
+    .next-priority {
+      min-height: 92px;
+      border: 2px dashed #bec9d8;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-style: italic;
+      background: #fafcff;
+    }
+
+    .footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .status-row {
+        grid-template-columns: 1fr;
+      }
+
+      .chart-wrap {
+        height: 240px;
+      }
+    }
+
+    /* FIX: Add a smaller breakpoint for better readability on narrow devices. */
+    @media (max-width: 640px) {
+      .container {
+        padding: 14px 10px 22px;
+      }
+
+      .header {
+        padding: 14px;
+      }
+
+      .header h1 {
+        font-size: 1.25rem;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .chart-wrap {
+        height: 220px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <noscript>
+    <p style="margin: 12px; color: #c9372c; font-weight: 600;">This dashboard requires JavaScript to render charts.</p>
+  </noscript>
+  <main class="container">
+    <section class="header">
+      <h1>Code Health Dashboard</h1>
+      <p>Snapshot of complexity, test coverage, and code churn hotspots.</p>
+    </section>
+
+    <section class="status-row" aria-label="health summary chips">
+      <article class="status-chip">
+        <span>Complexity Trend</span>
+        <span class="badge watch">WATCH</span>
+      </article>
+      <article class="status-chip">
+        <span>Coverage by Module</span>
+        <span class="badge action">ACTION</span>
+      </article>
+      <article class="status-chip">
+        <span>Churn Hotspots</span>
+        <span class="badge watch">WATCH</span>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Complexity Trend (Last 4 Weeks)</h2>
+        <p class="sub">Lower is better. Green band indicates healthy range.</p>
+        <div class="chart-wrap">
+          <canvas id="complexityChart" aria-label="Complexity trend line chart"></canvas>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Test Coverage by Module</h2>
+        <p class="sub">Horizontal bars with threshold coloring.</p>
+        <div class="chart-wrap">
+          <canvas id="coverageChart" aria-label="Coverage horizontal bar chart"></canvas>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Code Churn Hotspots (Last 30 Days)</h2>
+        <p class="sub">Files with highest edit frequency.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th class="right">Changes</th>
+            </tr>
+          </thead>
+          <tbody id="churnTableBody">
+            <tr>
+              <td colspan="2">Loading data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="card">
+        <h2>Technical Debt Distribution</h2>
+        <p class="sub">Debt split by category.</p>
+        <div class="chart-wrap small">
+          <canvas id="debtPieChart" aria-label="Technical debt pie chart"></canvas>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Overall Code Health Score</h2>
+        <p class="sub">Gauge-style view from 0 to 100.</p>
+        <div class="chart-wrap small">
+          <canvas id="healthGaugeChart" aria-label="Code health gauge chart"></canvas>
+        </div>
+        <div class="gauge-value" id="healthGaugeValue">--</div>
+      </article>
+
+      <article class="card">
+        <h2>12-Week Sparklines</h2>
+        <p class="sub">Small trend views for key metrics.</p>
+        <div class="sparkline-grid" id="sparklineGrid">
+          <div class="spark-item">Loading trend data...</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Code Churn Heat Map</h2>
+        <p class="sub">Weekly churn intensity by file.</p>
+        <div class="heatmap-wrap">
+          <table class="heatmap-table">
+            <thead id="heatmapHead">
+              <tr><th>File</th><th>Loading</th></tr>
+            </thead>
+            <tbody id="heatmapBody">
+              <tr><td>Loading data...</td><td>...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>This Sprint's Win</h2>
+        <p class="sub">Highlight one measurable improvement.</p>
+        <div class="callout" id="sprintWinText">
+          Loading sprint win...
+        </div>
+
+        <h2 style="margin-top: 18px;">Next Priority</h2>
+        <p class="sub">Leave blank until next planning session.</p>
+        <div class="next-priority" id="nextPriorityText">
+          Loading next priority...
+        </div>
+      </article>
+    </section>
+
+    <p class="footer">Last updated: <span id="lastUpdated"></span></p>
+  </main>
+
+  <script>
+    // FIX: Wait for DOM + deferred CDN script to be available before creating charts.
+    window.addEventListener("DOMContentLoaded", function () {
+      if (typeof window.Chart === "undefined") {
+        var footer = document.getElementById("lastUpdated");
+        if (footer) {
+          footer.textContent = "Chart.js failed to load from CDN.";
+        }
+        return;
+      }
+
+    // FIX: Centralized default data used if JSON fetch fails.
+    var fallbackData = {
+      meta: { lastUpdated: "" },
+      complexityTrend: {
+        labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+        values: [44, 42, 39, 36]
+      },
+      coverageByModule: [
+        { module: "Java", coverage: 18 },
+        { module: "Python", coverage: 22 },
+        { module: "TypeScript", coverage: 20 },
+        { module: "Infrastructure", coverage: 40 }
+      ],
+      codeChurnHotspots: [
+        { file: "java/PaymentProcessor.java", changes: 28 },
+        { file: "python/payment_processor.py", changes: 22 },
+        { file: "typescript/payment-processor.ts", changes: 20 }
+      ],
+      technicalDebtDistribution: [
+        { category: "Security", value: 40 },
+        { category: "Complexity", value: 25 },
+        { category: "Testing Gaps", value: 20 },
+        { category: "Duplication", value: 15 }
+      ],
+      overallHealthScore: 38,
+      sparklineTrends: [
+        { name: "Complexity", values: [47, 46, 45, 44, 44, 43, 43, 42, 41, 40, 39, 36] },
+        { name: "Coverage %", values: [10, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24] },
+        { name: "Security Findings", values: [18, 18, 17, 17, 16, 16, 15, 14, 14, 13, 12, 10] }
+      ],
+      churnHeatmap: {
+        weeks: ["W1", "W2", "W3", "W4"],
+        files: [
+          { file: "java/PaymentProcessor.java", values: [9, 8, 6, 5] },
+          { file: "python/payment_processor.py", values: [7, 6, 5, 4] },
+          { file: "typescript/payment-processor.ts", values: [6, 5, 5, 4] },
+          { file: "java/InvoiceDAO.java", values: [5, 4, 4, 3] }
+        ]
+      },
+      sprintWin: "Reduced critical SQL injection hotspots by standardizing prepared query patterns in the primary Java payment and invoice data paths.",
+      nextPriority: ""
+    };
+
+    function safeArray(value, fallback) {
+      return Array.isArray(value) ? value : fallback;
+    }
+
+    function toNumber(value, min, max) {
+      var n = Number(value);
+      if (!Number.isFinite(n)) {
+        return min;
+      }
+      if (n < min) {
+        return min;
+      }
+      if (n > max) {
+        return max;
+      }
+      return n;
+    }
+
+    const thresholdPlugin = {
+      id: "thresholdPlugin",
+      beforeDatasetsDraw: function (chart) {
+        if (chart.canvas.id !== "complexityChart") {
+          return;
+        }
+
+        var ctx = chart.ctx;
+        var chartArea = chart.chartArea;
+        var scales = chart.scales;
+
+        if (!chartArea || !scales || !scales.y) {
+          return;
+        }
+
+        var yScale = scales.y;
+        var healthyLimit = 15;
+        var yPixel = yScale.getPixelForValue(healthyLimit);
+
+        ctx.save();
+        ctx.fillStyle = "rgba(31, 138, 76, 0.12)";
+        ctx.fillRect(chartArea.left, yPixel, chartArea.right - chartArea.left, chartArea.bottom - yPixel);
+        ctx.restore();
+      }
+    };
+
+    Chart.register(thresholdPlugin);
+
+    function coverageColor(value) {
+      if (value >= 70) {
+        return "#1f8a4c";
+      }
+      if (value >= 40) {
+        return "#d6a000";
+      }
+      return "#c9372c";
+    }
+
+    function renderChurnTable(items) {
+      var tbody = document.getElementById("churnTableBody");
+      if (!tbody) {
+        return;
+      }
+
+      if (!items.length) {
+        tbody.innerHTML = "<tr><td colspan=\"2\">No churn data available.</td></tr>";
+        return;
+      }
+
+      tbody.innerHTML = items.map(function (item) {
+        var file = String(item.file || "Unknown file");
+        var changes = toNumber(item.changes, 0, 9999);
+        return "<tr><td>" + file + "</td><td class=\"right\">" + changes + "</td></tr>";
+      }).join("");
+    }
+
+    function churnHeatColor(value, maxValue) {
+      var n = toNumber(value, 0, maxValue || 1);
+      var ratio = maxValue > 0 ? n / maxValue : 0;
+      if (ratio >= 0.75) {
+        return "#c9372c";
+      }
+      if (ratio >= 0.4) {
+        return "#d6a000";
+      }
+      return "#1f8a4c";
+    }
+
+    function renderHeatmap(churnHeatmap) {
+      var head = document.getElementById("heatmapHead");
+      var body = document.getElementById("heatmapBody");
+      if (!head || !body) {
+        return;
+      }
+
+      var weeks = safeArray(churnHeatmap && churnHeatmap.weeks, ["W1", "W2", "W3", "W4"]);
+      var files = safeArray(churnHeatmap && churnHeatmap.files, []);
+      var maxValue = 0;
+
+      files.forEach(function (row) {
+        safeArray(row.values, []).forEach(function (v) {
+          var n = toNumber(v, 0, 9999);
+          if (n > maxValue) {
+            maxValue = n;
+          }
+        });
+      });
+
+      head.innerHTML = "<tr><th>File</th>" + weeks.map(function (w) {
+        return "<th>" + String(w) + "</th>";
+      }).join("") + "</tr>";
+
+      if (!files.length) {
+        body.innerHTML = "<tr><td colspan=\"" + (weeks.length + 1) + "\">No heat map data available.</td></tr>";
+        return;
+      }
+
+      body.innerHTML = files.map(function (row) {
+        var file = String(row.file || "Unknown file");
+        var values = safeArray(row.values, []);
+        var cells = weeks.map(function (_, idx) {
+          var v = toNumber(values[idx], 0, 9999);
+          var color = churnHeatColor(v, maxValue);
+          return "<td style=\"background: " + color + "22; color: #1f2a37; font-weight: 600;\">" + v + "</td>";
+        }).join("");
+        return "<tr><td>" + file + "</td>" + cells + "</tr>";
+      }).join("");
+    }
+
+    function renderSparklines(trends) {
+      var grid = document.getElementById("sparklineGrid");
+      if (!grid) {
+        return;
+      }
+
+      var sparkData = safeArray(trends, []);
+      if (!sparkData.length) {
+        grid.innerHTML = "<div class=\"spark-item\">No sparkline data available.</div>";
+        return;
+      }
+
+      grid.innerHTML = sparkData.map(function (trend, idx) {
+        var title = String(trend.name || "Metric");
+        return "<div class=\"spark-item\"><div class=\"spark-head\"><span>" + title + "</span><span>12 weeks</span></div><div class=\"spark-canvas-wrap\"><canvas id=\"sparkline-" + idx + "\"></canvas></div></div>";
+      }).join("");
+
+      sparkData.forEach(function (trend, idx) {
+        var canvas = document.getElementById("sparkline-" + idx);
+        if (!canvas) {
+          return;
+        }
+        var values = safeArray(trend.values, []).map(function (v) { return toNumber(v, 0, 9999); });
+        new Chart(canvas, {
+          type: "line",
+          data: {
+            labels: values.map(function (_, i) { return "T" + (i + 1); }),
+            datasets: [{
+              data: values,
+              borderColor: "#173e66",
+              backgroundColor: "rgba(23, 62, 102, 0.08)",
+              borderWidth: 2,
+              tension: 0.35,
+              pointRadius: 0,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: true }
+            },
+            scales: {
+              x: { display: false },
+              y: { display: false }
+            }
+          }
+        });
+      });
+    }
+
+    function renderDashboard(data) {
+      var complexityLabels = safeArray(data.complexityTrend && data.complexityTrend.labels, fallbackData.complexityTrend.labels);
+      var complexityValues = safeArray(data.complexityTrend && data.complexityTrend.values, fallbackData.complexityTrend.values)
+        .map(function (v) { return toNumber(v, 0, 999); });
+
+      var coverageRows = safeArray(data.coverageByModule, fallbackData.coverageByModule);
+      var coverageLabels = coverageRows.map(function (row) { return String(row.module || "Unknown"); });
+      var coverageValues = coverageRows.map(function (row) { return toNumber(row.coverage, 0, 100); });
+
+      var debtRows = safeArray(data.technicalDebtDistribution, fallbackData.technicalDebtDistribution);
+      var debtLabels = debtRows.map(function (row) { return String(row.category || "Unknown"); });
+      var debtValues = debtRows.map(function (row) { return toNumber(row.value, 0, 1000); });
+
+      var healthScore = toNumber(data.overallHealthScore, 0, 100);
+
+      var complexityCtx = document.getElementById("complexityChart");
+      new Chart(complexityCtx, {
+      type: "line",
+      data: {
+        labels: complexityLabels,
+        datasets: [{
+          label: "Average Module Complexity",
+          data: complexityValues,
+          borderColor: "#d6a000",
+          backgroundColor: "rgba(214, 160, 0, 0.18)",
+          fill: true,
+          tension: 0.3,
+          borderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: "#d6a000"
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true
+          },
+          tooltip: {
+            mode: "index",
+            intersect: false
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: "Complexity Score"
+            }
+          }
+        }
+      }
+    });
+
+      var coverageCtx = document.getElementById("coverageChart");
+      new Chart(coverageCtx, {
+      type: "bar",
+      data: {
+        labels: coverageLabels,
+        datasets: [{
+          label: "Coverage %",
+          data: coverageValues,
+          backgroundColor: coverageValues.map(coverageColor),
+          borderColor: coverageValues.map(coverageColor),
+          borderWidth: 1,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              // FIX: Use function syntax for broader browser compatibility.
+              callback: function (value) {
+                return value + "%";
+              }
+            }
+          }
+        }
+      }
+    });
+
+      var debtPieCtx = document.getElementById("debtPieChart");
+      new Chart(debtPieCtx, {
+        type: "pie",
+        data: {
+          labels: debtLabels,
+          datasets: [{
+            data: debtValues,
+            backgroundColor: ["#c9372c", "#d6a000", "#173e66", "#1f8a4c", "#7b8ba3"],
+            borderColor: "#ffffff",
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "bottom"
+            }
+          }
+        }
+      });
+
+      var healthGaugeCtx = document.getElementById("healthGaugeChart");
+      new Chart(healthGaugeCtx, {
+        type: "doughnut",
+        data: {
+          labels: ["Score", "Remaining"],
+          datasets: [{
+            data: [healthScore, 100 - healthScore],
+            backgroundColor: [coverageColor(healthScore), "#e8edf4"],
+            borderWidth: 0,
+            cutout: "72%",
+            circumference: 180,
+            rotation: 270
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            }
+          }
+        }
+      });
+
+      var healthGaugeValue = document.getElementById("healthGaugeValue");
+      if (healthGaugeValue) {
+        healthGaugeValue.textContent = healthScore + "/100";
+        healthGaugeValue.style.color = coverageColor(healthScore);
+      }
+
+      renderChurnTable(safeArray(data.codeChurnHotspots, fallbackData.codeChurnHotspots));
+      renderSparklines(safeArray(data.sparklineTrends, fallbackData.sparklineTrends));
+      renderHeatmap(data.churnHeatmap || fallbackData.churnHeatmap);
+
+      var sprintWinText = document.getElementById("sprintWinText");
+      if (sprintWinText) {
+        sprintWinText.textContent = data.sprintWin || fallbackData.sprintWin;
+      }
+
+      var nextPriorityText = document.getElementById("nextPriorityText");
+      if (nextPriorityText) {
+        nextPriorityText.textContent = data.nextPriority && String(data.nextPriority).trim().length > 0
+          ? data.nextPriority
+          : "(to be filled in)";
+      }
+
+      // FIX: Auto-timestamp from data.json; fallback to current time if missing/invalid.
+      var lastUpdatedEl = document.getElementById("lastUpdated");
+      if (lastUpdatedEl) {
+        var dataStamp = data.meta && data.meta.lastUpdated ? new Date(data.meta.lastUpdated) : null;
+        if (dataStamp && !isNaN(dataStamp.getTime())) {
+          lastUpdatedEl.textContent = dataStamp.toLocaleString();
+        } else {
+          lastUpdatedEl.textContent = new Date().toLocaleString();
+        }
+      }
+    }
+
+    // FIX: Load all metrics from JSON for simple weekly edits.
+    fetch("./data.json", { cache: "no-store" })
+      .then(function (res) {
+        if (!res.ok) {
+          throw new Error("Could not load data.json");
+        }
+        return res.json();
+      })
+      .then(function (json) {
+        renderDashboard(json || fallbackData);
+      })
+      .catch(function () {
+        renderDashboard(fallbackData);
+      });
+    });
+  </script>
+</body>
+</html>

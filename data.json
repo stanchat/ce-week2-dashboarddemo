@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "project": "Code Health Observatory",
+    "lastUpdated": "2026-04-07T09:00:00"
+  },
+  "complexityTrend": {
+    "labels": ["Week 1", "Week 2", "Week 3", "Week 4"],
+    "values": [44, 42, 39, 36]
+  },
+  "coverageByModule": [
+    { "module": "Java", "coverage": 18 },
+    { "module": "Python", "coverage": 22 },
+    { "module": "TypeScript", "coverage": 20 },
+    { "module": "Infrastructure", "coverage": 40 }
+  ],
+  "codeChurnHotspots": [
+    { "file": "java/PaymentProcessor.java", "changes": 28 },
+    { "file": "python/payment_processor.py", "changes": 22 },
+    { "file": "typescript/payment-processor.ts", "changes": 20 }
+  ],
+  "technicalDebtDistribution": [
+    { "category": "Security", "value": 40 },
+    { "category": "Complexity", "value": 25 },
+    { "category": "Testing Gaps", "value": 20 },
+    { "category": "Duplication", "value": 15 }
+  ],
+  "overallHealthScore": 38,
+  "sparklineTrends": [
+    { "name": "Complexity", "values": [47, 46, 45, 44, 44, 43, 43, 42, 41, 40, 39, 36] },
+    { "name": "Coverage %", "values": [10, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 24] },
+    { "name": "Security Findings", "values": [18, 18, 17, 17, 16, 16, 15, 14, 14, 13, 12, 10] }
+  ],
+  "churnHeatmap": {
+    "weeks": ["W1", "W2", "W3", "W4"],
+    "files": [
+      { "file": "java/PaymentProcessor.java", "values": [9, 8, 6, 5] },
+      { "file": "python/payment_processor.py", "values": [7, 6, 5, 4] },
+      { "file": "typescript/payment-processor.ts", "values": [6, 5, 5, 4] },
+      { "file": "java/InvoiceDAO.java", "values": [5, 4, 4, 3] }
+    ]
+  },
+  "sprintWin": "Reduced critical SQL injection hotspots by standardizing prepared query patterns in the primary Java payment and invoice data paths.",
+  "nextPriority": ""
+}
